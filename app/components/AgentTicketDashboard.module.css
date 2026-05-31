@@ -1,0 +1,153 @@
+.shell {
+  width: min(1180px, calc(100% - 32px));
+  margin: 32px auto;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.header svg {
+  width: 28px;
+  height: 28px;
+  margin-top: 4px;
+  color: var(--accent);
+}
+
+.header h1 {
+  margin: 0 0 6px;
+  font-size: 1.7rem;
+}
+
+.header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 18px 40px rgba(23, 32, 51, 0.07);
+}
+
+.table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+  font-size: 0.94rem;
+}
+
+.table th {
+  background: #f2f4f7;
+  color: #344054;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.table tr:last-child td {
+  border-bottom: 0;
+}
+
+.uuid {
+  color: #344054;
+  font-family: "Courier New", Courier, monospace;
+  font-weight: 700;
+}
+
+.subject {
+  max-width: 360px;
+  font-weight: 700;
+}
+
+.status,
+.sla {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.status svg,
+.sla svg {
+  width: 16px;
+  height: 16px;
+}
+
+.priority {
+  display: inline-flex;
+  align-items: center;
+  min-width: 74px;
+  justify-content: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.critical {
+  color: #a40016;
+  background: #fff1f3;
+  animation: priorityPulse 1.15s ease-in-out infinite;
+}
+
+.high {
+  color: var(--warning);
+  background: #fff7ed;
+}
+
+.medium {
+  color: var(--medium);
+  background: #fefce8;
+}
+
+.low {
+  color: var(--low);
+  background: #f8fafc;
+}
+
+.overdue {
+  color: var(--danger);
+  font-weight: 900;
+}
+
+.empty {
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+@keyframes priorityPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(164, 0, 22, 0.22);
+  }
+
+  50% {
+    box-shadow: 0 0 0 5px rgba(164, 0, 22, 0);
+  }
+}
+
+@media (max-width: 720px) {
+  .shell {
+    width: min(100% - 24px, 1180px);
+    margin: 16px auto;
+  }
+}
