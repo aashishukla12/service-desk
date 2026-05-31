@@ -1,0 +1,45 @@
+/* ──────────────────────────────────────────
+   Breadcrumbs Component
+   ────────────────────────────────────────── */
+
+.breadcrumbs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--foreground-muted);
+}
+
+.separator {
+  display: flex;
+  align-items: center;
+  color: var(--border-hover);
+}
+
+.link {
+  color: var(--foreground-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.link:hover {
+  color: var(--accent-hover);
+}
+
+.current {
+  color: var(--foreground);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.homeIcon {
+  display: flex;
+  align-items: center;
+  color: var(--foreground-muted);
+  transition: color var(--transition-fast);
+}
+
+.homeIcon:hover {
+  color: var(--accent-hover);
+}

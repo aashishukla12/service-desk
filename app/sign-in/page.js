@@ -1,125 +1,176 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { FiLogIn } from "react-icons/fi";
-import styles from "./SignIn.module.css";
+import { useState } from 'react';
+import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { Hexagon, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
+import styles from './SignIn.module.css';
 
 export default function SignInPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState({});
-  const [serverMessage, setServerMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  function validate() {
-    const next = {};
-    if (!email.trim()) next.email = "Email is required.";
-    if (!password) next.password = "Password is required.";
-    return next;
-  }
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setServerMessage("");
-
-    const validationErrors = validate();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+    if (!email.trim()) {
+      setError('Please enter your email address.');
+      return;
+    }
+    if (!password) {
+      setError('Please enter your password.');
       return;
     }
 
-    setErrors({});
-    setIsSubmitting(true);
+    setIsLoading(true);
 
     try {
-      const result = await signIn("credentials", {
+      const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       });
 
       if (!result || result.error) {
-        setServerMessage(result?.error || "Invalid email or password.");
+        setError(result?.error || 'Invalid email or password.');
         return;
       }
 
-      router.push("/tickets/new");
+      router.push('/dashboard');
     } catch {
-      setServerMessage("Network error. Please try again.");
+      setError('Network error. Please try again.');
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   }
 
   return (
-    <section className={styles.shell} aria-labelledby="sign-in-title">
-      <div className={styles.header}>
-        <FiLogIn aria-hidden="true" />
-        <div>
-          <h1 id="sign-in-title">Sign In</h1>
-          <p>Enter your credentials to access the service desk portal.</p>
+    <div className={styles.page}>
+      {/* Ambient background decorations */}
+      <div className={styles.bgPattern} aria-hidden="true" />
+      <div className={styles.bgGlow} aria-hidden="true" />
+
+      <div className={styles.card}>
+        {/* Logo & branding */}
+        <div className={styles.brand}>
+          <div className={styles.logoWrap}>
+            <Hexagon size={28} />
+          </div>
+          <span className={styles.logoText}>ServiceDesk</span>
         </div>
+
+        {/* Heading */}
+        <div className={styles.heading}>
+          <h1>Welcome back</h1>
+          <p>Sign in to your account</p>
+        </div>
+
+        {/* Form */}
+        <form className={styles.form} onSubmit={handleSubmit} noValidate>
+          {/* Email */}
+          <div className={styles.inputGroup}>
+            <label htmlFor="signin-email" className={styles.label}>
+              Email
+            </label>
+            <div className={styles.inputWrap}>
+              <Mail size={18} className={styles.inputIcon} />
+              <input
+                id="signin-email"
+                type="email"
+                className={styles.input}
+                placeholder="you@company.com"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError('');
+                }}
+                autoComplete="email"
+              />
+            </div>
+          </div>
+
+          {/* Password */}
+          <div className={styles.inputGroup}>
+            <label htmlFor="signin-password" className={styles.label}>
+              Password
+            </label>
+            <div className={styles.inputWrap}>
+              <Lock size={18} className={styles.inputIcon} />
+              <input
+                id="signin-password"
+                type={showPassword ? 'text' : 'password'}
+                className={styles.input}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError('');
+                }}
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                className={styles.togglePassword}
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Remember + Forgot */}
+          <div className={styles.options}>
+            <label className={styles.checkbox}>
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              <span>Remember me</span>
+            </label>
+            <a href="#" className={styles.forgot}>
+              Forgot password?
+            </a>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className={styles.error} role="alert">
+              {error}
+            </div>
+          )}
+
+          {/* Submit */}
+          <button
+            type="submit"
+            className={styles.submit}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 size={18} className={styles.spinner} />
+                Signing in…
+              </>
+            ) : (
+              'Sign In'
+            )}
+          </button>
+        </form>
+
+        {/* Footer */}
+        <p className={styles.cardFooter}>
+          Don&apos;t have an account?{' '}
+          <a href="#">Contact your administrator</a>
+        </p>
       </div>
-
-      <form className={styles.form} onSubmit={handleSubmit} noValidate>
-        <label className={styles.field}>
-          <span>Email</span>
-          <input
-            id="sign-in-email"
-            type="email"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setErrors((prev) => ({ ...prev, email: undefined }));
-              setServerMessage("");
-            }}
-            aria-invalid={Boolean(errors.email)}
-            aria-describedby={errors.email ? "email-error" : undefined}
-            placeholder="you@company.com"
-          />
-          {errors.email && (
-            <strong id="email-error" className={styles.error}>
-              {errors.email}
-            </strong>
-          )}
-        </label>
-
-        <label className={styles.field}>
-          <span>Password</span>
-          <input
-            id="sign-in-password"
-            type="password"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setErrors((prev) => ({ ...prev, password: undefined }));
-              setServerMessage("");
-            }}
-            aria-invalid={Boolean(errors.password)}
-            aria-describedby={errors.password ? "password-error" : undefined}
-            placeholder="••••••••"
-          />
-          {errors.password && (
-            <strong id="password-error" className={styles.error}>
-              {errors.password}
-            </strong>
-          )}
-        </label>
-
-        {serverMessage && <div className={styles.alert}>{serverMessage}</div>}
-
-        <button className={styles.submit} type="submit" disabled={isSubmitting}>
-          <FiLogIn aria-hidden="true" />
-          {isSubmitting ? "Signing In…" : "Sign In"}
-        </button>
-
-        <div className={styles.links}>
-          Don&apos;t have an account? Contact your administrator.
-        </div>
-      </form>
-    </section>
+    </div>
   );
 }

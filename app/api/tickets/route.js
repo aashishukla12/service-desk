@@ -1,55 +1,72 @@
 import { json, handleRouteError, parseJson } from "@/lib/http";
 import { requireSession, isStaff } from "@/lib/rbac";
-import { withTransaction, pool } from "@/lib/db";
-import { createTicketSchema, computeSlaDueAt } from "@/lib/validation/tickets";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
 
 export const runtime = "nodejs";
+
+const createTicketSchema = z.object({
+  subject: z.string().trim().min(5, "Subject must be at least 5 characters.").max(200),
+  description: z.string().trim().min(10, "Description must be at least 10 characters.").max(10000),
+  priority: z.enum(["URGENT", "HIGH", "MEDIUM", "LOW"]).default("MEDIUM"),
+  channel: z.enum(["EMAIL", "CHAT", "PHONE", "SOCIAL", "WEB"]).default("WEB"),
+  contactId: z.string().optional(),
+  departmentId: z.string().optional(),
+  assigneeId: z.string().optional(),
+});
+
+function computeSlaDueAt(priority, now = new Date()) {
+  const hoursByPriority = {
+    URGENT: 1,
+    HIGH: 4,
+    MEDIUM: 24,
+    LOW: 48,
+  };
+  const hours = hoursByPriority[priority] || 24;
+  return new Date(now.getTime() + hours * 60 * 60 * 1000);
+}
 
 export async function POST(request) {
   try {
     const user = await requireSession();
     const payload = await parseJson(request, createTicketSchema);
-    const slaDueAt = computeSlaDueAt(payload.priority);
+    const dueAt = computeSlaDueAt(payload.priority);
 
-    const ticket = await withTransaction(async (client) => {
-      const insertResult = await client.query(
-        `
-          INSERT INTO tickets (title, description, priority, customer_id, sla_due_at)
-          VALUES ($1, $2, $3::ticket_priority, $4, $5)
-          RETURNING id, uuid, title, description, status, priority, customer_id, assigned_agent_id, sla_due_at, created_at, updated_at
-        `,
-        [payload.title, payload.description, payload.priority, user.id, slaDueAt.toISOString()]
-      );
+    const ticket = await prisma.$transaction(async (tx) => {
+      const created = await tx.ticket.create({
+        data: {
+          orgId: user.orgId,
+          subject: payload.subject,
+          description: payload.description,
+          priority: payload.priority,
+          channel: payload.channel,
+          contactId: payload.contactId || null,
+          departmentId: payload.departmentId || null,
+          assigneeId: payload.assigneeId || null,
+          dueAt,
+        },
+        include: {
+          assignee: { select: { id: true, name: true } },
+          contact: { select: { id: true, name: true } },
+          department: { select: { name: true } },
+        },
+      });
 
-      const createdTicket = insertResult.rows[0];
+      await tx.activityLog.create({
+        data: {
+          ticketId: created.id,
+          actorId: user.id,
+          actionType: "ticket.created",
+          newValue: {
+            subject: created.subject,
+            priority: created.priority,
+            status: created.status,
+            channel: created.channel,
+          },
+        },
+      });
 
-      await client.query(
-        `
-          INSERT INTO ticket_timeline (ticket_id, author_id, body, is_internal_note)
-          VALUES ($1, $2, $3, FALSE)
-        `,
-        [createdTicket.id, user.id, "Ticket created."]
-      );
-
-      await client.query(
-        `
-          INSERT INTO audit_logs (ticket_id, actor_id, action_type, old_value, new_value)
-          VALUES ($1, $2, $3, '{}'::jsonb, $4::jsonb)
-        `,
-        [
-          createdTicket.id,
-          user.id,
-          "ticket.created",
-          JSON.stringify({
-            title: createdTicket.title,
-            priority: createdTicket.priority,
-            status: createdTicket.status,
-            sla_due_at: createdTicket.sla_due_at
-          })
-        ]
-      );
-
-      return createdTicket;
+      return created;
     });
 
     return json({ ticket }, 201);
@@ -58,34 +75,73 @@ export async function POST(request) {
   }
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
     const user = await requireSession();
+    const { searchParams } = new URL(request.url);
 
-    const baseSelect = `
-      SELECT
-        t.id,
-        t.uuid,
-        t.title,
-        t.status,
-        t.priority,
-        t.customer_id,
-        t.assigned_agent_id,
-        t.sla_due_at,
-        t.created_at,
-        t.updated_at,
-        customer.name AS customer_name,
-        agent.name AS assigned_agent_name
-      FROM tickets t
-      INNER JOIN users customer ON customer.id = t.customer_id
-      LEFT JOIN users agent ON agent.id = t.assigned_agent_id
-    `;
+    const where = { orgId: user.orgId };
 
-    const result = isStaff(user.role)
-      ? await pool.query(`${baseSelect} ORDER BY t.created_at DESC LIMIT 250`)
-      : await pool.query(`${baseSelect} WHERE t.customer_id = $1 ORDER BY t.created_at DESC LIMIT 250`, [user.id]);
+    // Filters
+    const status = searchParams.get("status");
+    if (status) where.status = status;
 
-    return json({ tickets: result.rows });
+    const priority = searchParams.get("priority");
+    if (priority) where.priority = priority;
+
+    const assigneeId = searchParams.get("assigneeId");
+    if (assigneeId === "unassigned") {
+      where.assigneeId = null;
+    } else if (assigneeId === "mine") {
+      where.assigneeId = user.id;
+    } else if (assigneeId) {
+      where.assigneeId = assigneeId;
+    }
+
+    const filter = searchParams.get("filter");
+    if (filter === "mine") {
+      where.assigneeId = user.id;
+    } else if (filter === "unassigned") {
+      where.assigneeId = null;
+      where.status = { notIn: ["CLOSED", "RESOLVED"] };
+    } else if (filter === "overdue") {
+      where.dueAt = { lt: new Date() };
+      where.status = { notIn: ["CLOSED", "RESOLVED"] };
+    }
+
+    const search = searchParams.get("search");
+    if (search) {
+      where.subject = { contains: search, mode: "insensitive" };
+    }
+
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
+    const skip = (page - 1) * limit;
+
+    const [tickets, total] = await Promise.all([
+      prisma.ticket.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        include: {
+          assignee: { select: { id: true, name: true, avatarUrl: true } },
+          contact: { select: { id: true, name: true, email: true } },
+          department: { select: { name: true } },
+        },
+      }),
+      prisma.ticket.count({ where }),
+    ]);
+
+    return json({
+      tickets,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     return handleRouteError(error);
   }

@@ -1,0 +1,455 @@
+// Zoho Service Desk Clone — Prisma Schema
+// Multi-tenant helpdesk SaaS data model
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────
+// Enums
+// ──────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  AGENT
+  LIGHT_AGENT
+  CUSTOMER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  ON_HOLD
+  PENDING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TicketChannel {
+  EMAIL
+  CHAT
+  PHONE
+  SOCIAL
+  WEB
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// ──────────────────────────────────────────
+// Multi-tenant Root
+// ──────────────────────────────────────────
+
+model Organization {
+  id            String   @id @default(cuid())
+  name          String
+  domain        String?  @unique
+  plan          String   @default("free")
+  logoUrl       String?  @map("logo_url")
+  timezone      String   @default("UTC")
+  businessHours Json?    @map("business_hours")
+  settings      Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  users         User[]
+  departments   Department[]
+  tickets       Ticket[]
+  contacts      Contact[]
+  accounts      Account[]
+  slaPolicies   SLAPolicy[]
+  automations   Automation[]
+  kbCategories  KBCategory[]
+  kbArticles    KBArticle[]
+  tags          Tag[]
+  blueprints    Blueprint[]
+
+  @@map("organizations")
+}
+
+// ──────────────────────────────────────────
+// Users & Agents
+// ──────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  orgId        String   @map("org_id")
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         UserRole @default(AGENT)
+  avatarUrl    String?  @map("avatar_url")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  departmentId String?     @map("department_id")
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  assignedTickets Ticket[]       @relation("AssignedAgent")
+  replies         TicketReply[]
+  timeLogs        TimeLog[]
+  kbArticles      KBArticle[]
+  activityLogs    ActivityLog[]  @relation("Actor")
+
+  @@index([orgId])
+  @@index([email])
+  @@index([departmentId])
+  @@map("users")
+}
+
+// ──────────────────────────────────────────
+// Departments
+// ──────────────────────────────────────────
+
+model Department {
+  id           String   @id @default(cuid())
+  orgId        String   @map("org_id")
+  name         String
+  emailAddress String?  @map("email_address")
+  timezone     String   @default("UTC")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  users        User[]
+  tickets      Ticket[]
+  slaPolicies  SLAPolicy[]
+
+  @@index([orgId])
+  @@map("departments")
+}
+
+// ──────────────────────────────────────────
+// Contacts & Accounts (Customers)
+// ──────────────────────────────────────────
+
+model Contact {
+  id        String   @id @default(cuid())
+  orgId     String   @map("org_id")
+  name      String
+  email     String
+  phone     String?
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  accountId String?  @map("account_id")
+  account   Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  tickets Ticket[]
+
+  @@index([orgId])
+  @@index([email])
+  @@index([accountId])
+  @@map("contacts")
+}
+
+model Account {
+  id        String   @id @default(cuid())
+  orgId     String   @map("org_id")
+  name      String
+  website   String?
+  industry  String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contacts     Contact[]
+
+  @@index([orgId])
+  @@map("accounts")
+}
+
+// ──────────────────────────────────────────
+// Tickets — Core Entity
+// ──────────────────────────────────────────
+
+model Ticket {
+  id          String         @id @default(cuid())
+  orgId       String         @map("org_id")
+  subject     String
+  description String
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+  channel     TicketChannel  @default(WEB)
+  dueAt       DateTime?      @map("due_at")
+  resolvedAt  DateTime?      @map("resolved_at")
+  closedAt    DateTime?      @map("closed_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  assigneeId   String?      @map("assignee_id")
+  assignee     User?        @relation("AssignedAgent", fields: [assigneeId], references: [id], onDelete: SetNull)
+  contactId    String?      @map("contact_id")
+  contact      Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  departmentId String?      @map("department_id")
+  department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  slaId        String?      @map("sla_id")
+  slaPolicy    SLAPolicy?   @relation(fields: [slaId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  replies      TicketReply[]
+  attachments  TicketAttachment[]
+  tags         TicketTag[]
+  csatRating   CSATRating?
+  timeLogs     TimeLog[]
+  activityLogs ActivityLog[]
+
+  @@index([orgId])
+  @@index([status])
+  @@index([priority])
+  @@index([assigneeId])
+  @@index([contactId])
+  @@index([departmentId])
+  @@index([createdAt(sort: Desc)])
+  @@map("tickets")
+}
+
+// ──────────────────────────────────────────
+// Ticket Replies / Thread
+// ──────────────────────────────────────────
+
+model TicketReply {
+  id        String   @id @default(cuid())
+  ticketId  String   @map("ticket_id")
+  authorId  String   @map("author_id")
+  bodyHtml  String   @map("body_html")
+  isPrivate Boolean  @default(false) @map("is_private")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticket      Ticket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author      User             @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  attachments TicketAttachment[]
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_replies")
+}
+
+// ──────────────────────────────────────────
+// File Attachments
+// ──────────────────────────────────────────
+
+model TicketAttachment {
+  id        String   @id @default(cuid())
+  ticketId  String   @map("ticket_id")
+  replyId   String?  @map("reply_id")
+  fileUrl   String   @map("file_url")
+  fileName  String   @map("file_name")
+  fileSize  Int      @map("file_size")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticket Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  reply  TicketReply? @relation(fields: [replyId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+  @@map("ticket_attachments")
+}
+
+// ──────────────────────────────────────────
+// Tags
+// ──────────────────────────────────────────
+
+model Tag {
+  id    String @id @default(cuid())
+  orgId String @map("org_id")
+  name  String
+  color String @default("#6366f1")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  tickets      TicketTag[]
+
+  @@unique([orgId, name])
+  @@map("tags")
+}
+
+model TicketTag {
+  ticketId String @map("ticket_id")
+  tagId    String @map("tag_id")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([ticketId, tagId])
+  @@map("ticket_tags")
+}
+
+// ──────────────────────────────────────────
+// SLA Policies
+// ──────────────────────────────────────────
+
+model SLAPolicy {
+  id                 String         @id @default(cuid())
+  orgId              String         @map("org_id")
+  name               String
+  priority           TicketPriority
+  firstResponseHours Int            @map("first_response_hours")
+  resolutionHours    Int            @map("resolution_hours")
+  active             Boolean        @default(true)
+  createdAt          DateTime       @default(now()) @map("created_at")
+
+  departmentId String?     @map("department_id")
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  tickets Ticket[]
+
+  @@index([orgId])
+  @@map("sla_policies")
+}
+
+// ──────────────────────────────────────────
+// Automations
+// ──────────────────────────────────────────
+
+model Automation {
+  id           String   @id @default(cuid())
+  orgId        String   @map("org_id")
+  name         String
+  triggerEvent String   @map("trigger_event")
+  conditions   Json
+  actions      Json
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("automations")
+}
+
+// ──────────────────────────────────────────
+// Knowledge Base
+// ──────────────────────────────────────────
+
+model KBCategory {
+  id         String  @id @default(cuid())
+  orgId      String  @map("org_id")
+  name       String
+  parentId   String? @map("parent_id")
+  orderIndex Int     @default(0) @map("order_index")
+
+  parent       KBCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children     KBCategory[] @relation("CategoryTree")
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  articles     KBArticle[]
+
+  @@index([orgId])
+  @@map("kb_categories")
+}
+
+model KBArticle {
+  id              String        @id @default(cuid())
+  orgId           String        @map("org_id")
+  title           String
+  bodyHtml        String        @map("body_html")
+  status          ArticleStatus @default(DRAFT)
+  views           Int           @default(0)
+  helpfulVotes    Int           @default(0) @map("helpful_votes")
+  notHelpfulVotes Int           @default(0) @map("not_helpful_votes")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  categoryId String?     @map("category_id")
+  category   KBCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  authorId   String      @map("author_id")
+  author     User        @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([categoryId])
+  @@index([status])
+  @@map("kb_articles")
+}
+
+// ──────────────────────────────────────────
+// CSAT Ratings
+// ──────────────────────────────────────────
+
+model CSATRating {
+  id          String   @id @default(cuid())
+  ticketId    String   @unique @map("ticket_id")
+  rating      Int      // 1-5
+  comment     String?
+  submittedAt DateTime @default(now()) @map("submitted_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("csat_ratings")
+}
+
+// ──────────────────────────────────────────
+// Time Tracking
+// ──────────────────────────────────────────
+
+model TimeLog {
+  id       String   @id @default(cuid())
+  ticketId String   @map("ticket_id")
+  agentId  String   @map("agent_id")
+  minutes  Int
+  note     String?
+  loggedAt DateTime @default(now()) @map("logged_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  agent  User   @relation(fields: [agentId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId])
+  @@map("time_logs")
+}
+
+// ──────────────────────────────────────────
+// Blueprints (Process Automation)
+// ──────────────────────────────────────────
+
+model Blueprint {
+  id          String   @id @default(cuid())
+  orgId       String   @map("org_id")
+  name        String
+  states      Json
+  transitions Json
+  active      Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("blueprints")
+}
+
+// ──────────────────────────────────────────
+// Activity / Audit Log
+// ──────────────────────────────────────────
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  ticketId   String?  @map("ticket_id")
+  actorId    String?  @map("actor_id")
+  actionType String   @map("action_type")
+  oldValue   Json?    @map("old_value")
+  newValue   Json?    @map("new_value")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  ticket Ticket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  actor  User?   @relation("Actor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt(sort: Desc)])
+  @@map("activity_logs")
+}

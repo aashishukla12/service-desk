@@ -1,38 +1,171 @@
-.container {
+/* ──────────────────────────────────────────
+   Landing Page — Premium Dark Theme
+   ────────────────────────────────────────── */
+
+.page {
+  position: relative;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px;
-  background: linear-gradient(135deg, #0f766e08 0%, #115e5908 100%);
+  padding: 64px 24px 32px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.12) 0%, transparent 60%),
+    var(--background);
 }
+
+/* ── Ambient glow blobs ── */
+
+.bgGlow {
+  position: absolute;
+  top: -180px;
+  left: 50%;
+  translate: -50% 0;
+  width: 700px;
+  height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bgGlowSecondary {
+  position: absolute;
+  bottom: -300px;
+  right: -200px;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Hero ── */
 
 .hero {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  margin-bottom: 48px;
+  max-width: 680px;
+  animation: heroFadeIn 0.8s ease-out both;
 }
 
-.hero h1 {
-  font-size: 2.8rem;
-  margin: 0 0 12px;
-  color: var(--foreground);
+@keyframes heroFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.badge {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  background: var(--accent-muted);
+  color: var(--accent-hover);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+}
+
+.title {
+  margin: 0 0 20px;
+  font-size: clamp(2.8rem, 6vw, 4rem);
   font-weight: 900;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  background: linear-gradient(180deg, #ffffff 30%, #9ca3af 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-.hero p {
-  font-size: 1.15rem;
-  color: var(--muted);
-  margin: 0;
-  max-width: 480px;
+.subtitle {
+  margin: 0 0 40px;
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--foreground-muted);
+  max-width: 540px;
 }
 
-.cards {
+/* ── CTA Buttons ── */
+
+.ctas {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ctaPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition:
+    background var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.ctaPrimary:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(99, 102, 241, 0.3);
+}
+
+.ctaOutline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.ctaOutline:hover {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+  transform: translateY(-1px);
+}
+
+/* ── Feature Cards ── */
+
+.features {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
-  width: min(920px, 100%);
+  width: min(960px, 100%);
+  margin-top: 72px;
 }
 
 .card {
@@ -40,43 +173,104 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 32px 24px;
-  background: var(--surface);
+  padding: 36px 28px 32px;
+  border-radius: var(--radius-lg);
+  background: rgba(26, 29, 39, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  text-decoration: none;
-  color: inherit;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(23, 32, 51, 0.05);
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+
+  /* staggered slide-up */
+  animation: cardSlideUp 0.6s ease-out both;
+}
+
+@keyframes cardSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .card:hover {
+  transform: translateY(-4px);
   border-color: var(--accent);
-  box-shadow: 0 8px 24px rgba(15, 118, 110, 0.12);
-  transform: translateY(-2px);
+  box-shadow: 0 0 28px rgba(99, 102, 241, 0.12);
 }
 
-.card svg {
-  width: 32px;
-  height: 32px;
-  color: var(--accent);
-  margin-bottom: 14px;
+.iconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--accent-muted);
+  color: var(--accent-hover);
+  margin-bottom: 20px;
 }
 
-.card h2 {
-  margin: 0 0 8px;
-  font-size: 1.15rem;
+.cardTitle {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--foreground);
 }
 
-.card p {
+.cardDesc {
   margin: 0;
-  color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.5;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--foreground-muted);
 }
 
-@media (max-width: 720px) {
-  .cards {
+/* ── Footer ── */
+
+.footer {
+  position: relative;
+  z-index: 1;
+  margin-top: 80px;
+  font-size: 0.8rem;
+  color: var(--foreground-muted);
+  opacity: 0.5;
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 768px) {
+  .page {
+    padding: 48px 20px 32px;
+  }
+
+  .features {
     grid-template-columns: 1fr;
+    max-width: 400px;
+    margin-top: 48px;
+  }
+
+  .title {
+    font-size: 2.4rem;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .features {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .card {
+    padding: 28px 20px 24px;
   }
 }
