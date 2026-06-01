@@ -48,43 +48,108 @@ ServiceDesk is an enterprise-grade customer support and helpdesk portal built on
 
 ---
 
-## 🔑 Demo Access Credentials
+## ⚙️ Local Development Setup
 
-To test the application locally, you can sign in using any of the seeded credentials:
+Follow these detailed steps to set up and run ServiceDesk locally.
 
-* **Administrator Role**:
-  * Email: `admin@acme.com`
-  * Password: `password123`
-* **Agent Role**:
-  * Email: `sarah@acme.com`
-  * Password: `password123`
+### 1. Prerequisites
+Ensure you have the following installed on your machine:
+* **Node.js** (v18.x or higher) and **npm**
+* **PostgreSQL** (v15.x or higher)
 
 ---
 
-## ⚙️ Local Development Setup
+### 2. Start PostgreSQL Database
+ServiceDesk requires a running PostgreSQL instance.
 
-### 1. Install Dependencies
+#### Option A: Project-Specific Local PostgreSQL (Recommended for this workspace)
+If you are developing in this pre-configured Windows environment, a local PostgreSQL data folder is located at `C:\Service\db_data`. You can start the database using PowerShell:
+```powershell
+# Start the PostgreSQL server
+& "C:\Program Files\PostgreSQL\18\bin\pg_ctl.exe" start -D "C:\Service\db_data" -l "C:\Service\db_data\logfile"
+```
+*Note: The local PostgreSQL database is configured to listen on port **5433**.*
+
+#### Option B: Standard/Global PostgreSQL Installation
+If you are using a standard global PostgreSQL installation:
+1. Ensure the PostgreSQL service is running.
+2. Create a database named `service_desk`.
+3. Note your connection details (user, password, host, port).
+
+---
+
+### 3. Configure Environment Variables
+Create a `.env` (or `.env.local`) file in the root directory. You can copy the template from `.env.example`:
+```bash
+cp .env.example .env
+```
+
+Configure the environment variables in `.env`:
+```env
+# Database connection URL (matches the local postgres database port 5433)
+DATABASE_URL="postgresql://postgres@localhost:5433/service_desk"
+
+# NextAuth secret used for token and session encryption
+NEXTAUTH_SECRET="super-secret-dev-key-change-in-production-2024"
+
+# NextAuth canonical URL
+NEXTAUTH_URL="http://localhost:3000"
+```
+
+---
+
+### 4. Install Dependencies
+Install the required packages:
 ```bash
 npm install
 ```
 
-### 2. Configure Database Environment
-Create a `.env` or `.env.local` file in the root directory:
-```env
-DATABASE_URL="postgresql://user:password@localhost:5432/service_desk"
-NEXTAUTH_SECRET="your-32-character-secret-key"
-NEXTAUTH_URL="http://localhost:3000"
-```
+---
 
-### 3. Run Database Migrations & Seeds
-Push the schema to your local PostgreSQL instance and seed it with demo CRM accounts, tickets, agents, and categories:
+### 5. Initialize the Database (Schema & Seeds)
+Sync the Prisma schema to your PostgreSQL database and run the bootstrap seed script:
+
+1. **Push the database schema**:
+   This command creates the necessary tables, relations, and columns:
+   ```bash
+   npx prisma db push
+   ```
+
+2. **Seed the database**:
+   Bootstrap the database with an organization profile and a default Administrator account:
+   ```bash
+   npx prisma db seed
+   ```
+
+*(Optional)* **Clear/Wipe the Database**:
+If you ever need to start with a fresh database and wipe all records (while maintaining database schema integrity):
 ```bash
-npx prisma db push
-npx prisma db seed
+node prisma/clear.js
 ```
 
-### 4. Launch the Development Server
+---
+
+### 6. Run the Development Server
+Launch the Next.js development server:
 ```bash
 npm run dev
 ```
-Open **`http://localhost:3000`** in your browser. All layout shells, custom CRM folders, and setting pages are fully responsive and functional!
+
+Open **`http://localhost:3000`** in your browser.
+
+---
+
+## 🔑 Demo Access Credentials
+
+Once the database has been seeded, use the following credentials to sign in:
+
+* **Administrator Account**:
+  * **Email**: `admin@servicedesk.com`
+  * **Password**: `admin123`
+
+* **Adding Agents, Contacts, & Departments**:
+  Once logged in as an Administrator, you can navigate to:
+  * **Settings → Departments** to add, edit, or remove support departments.
+  * **Contacts** to add client contacts and associate them with customer accounts.
+  * **Accounts** to manage client company accounts.
+  * *These newly added entities will instantly populate dropdown selections across the portal (e.g., in the Submit Ticket form).*
