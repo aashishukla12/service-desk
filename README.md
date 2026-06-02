@@ -48,9 +48,59 @@ ServiceDesk is an enterprise-grade customer support and helpdesk portal built on
 
 ---
 
-## ⚙️ Local Development Setup
+## 🐳 Docker Containerized Setup (Automated & Recommended)
 
-Follow these detailed steps to set up and run ServiceDesk locally.
+This project is fully containerized with Docker and Docker Compose, orchestrating both the Next.js web application and a PostgreSQL database with persistent storage. 
+
+We provide one-click setup scripts that verify your Docker installation, copy environment configurations, resolve port conflicts, build the Docker images, spin up the containers, run the Prisma schema migrations, seed the database, and verify the app is fully online.
+
+### Running in Docker
+
+#### Option A: Windows (PowerShell)
+Run the automated script in a PowerShell prompt:
+```powershell
+.\setup-docker.ps1
+```
+
+#### Option B: macOS, Linux, or Git Bash
+Run the automated bash script in your terminal:
+```bash
+chmod +x setup-docker.sh
+./setup-docker.sh
+```
+
+---
+
+### Managing the Docker Stack Manually
+
+If you prefer to run the Docker commands manually:
+
+1. **Start the containers** in the background:
+   ```bash
+   docker compose up -d --build
+   ```
+   *This automatically builds the Next.js app image, runs Prisma migration schema checks, seeds default database values, and binds the web app to port `3000` and PostgreSQL to port `5433` on the host.*
+
+2. **Check the logs** for the app container:
+   ```bash
+   docker compose logs -f app
+   ```
+
+3. **Stop the containers** (preserving database volumes):
+   ```bash
+   docker compose down
+   ```
+
+4. **Stop the containers and wipe the database data**:
+   ```bash
+   docker compose down -v
+   ```
+
+---
+
+## ⚙️ Manual Local Development Setup
+
+Follow these detailed steps to set up and run ServiceDesk manually.
 
 ### 1. Prerequisites
 Ensure you have the following installed on your machine:
